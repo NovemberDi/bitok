@@ -26,6 +26,7 @@
     data(){
       return {
         queryResult: {},
+        queryInterval:'',
         selector:{
              day: true,
              week: false,
@@ -54,7 +55,7 @@
 
 
           async getData(){
-            let data = await this.$api.get(`https://api.coincap.io/v2/assets/bitcoin/history?interval=d1&start=${this.startTime}&end=${this.endTime}`,{
+            let data = await this.$api.get(`https://api.coincap.io/v2/assets/bitcoin/history?interval=${this.queryInterval}&start=${this.startTime}&end=${this.endTime}`,{
 
             });
            this.queryResult = data.data.data;
@@ -73,10 +74,10 @@
             }
           },
           setNewDate(){
-            if (this.selector.day) this.rangeOfDays = 1;
-            if (this.selector.week) this.rangeOfDays = 7;
-            if (this.selector.month) this.rangeOfDays = 31;
-            if (this.selector.year) this.rangeOfDays = 366;
+            if (this.selector.day) {this.rangeOfDays = 1; this.queryInterval = 'm30'}
+            if (this.selector.week) {this.rangeOfDays = 7; this.queryInterval = 'h2'}
+            if (this.selector.month) {this.rangeOfDays = 31; this.queryInterval = 'h6'}
+            if (this.selector.year) {this.rangeOfDays = 366; this.queryInterval = 'd1'}
             this.startTime =  new Date().setHours(new Date().getHours()-24*this.rangeOfDays);
             this.endTime = Date.now();            
           },
@@ -91,12 +92,7 @@
             this.getData();
           },
           makeDataSet(newValue){
-            if (newValue.length>0){
-            console.log(newValue.length)
-              // let press = newValue.filter((item, index, arr) => {if ((index+1) % splitter == 0) return true})
-
-
-              
+            if (newValue.length>0){           
               this.dataSet = {
                 series: [{name:'USD', data:[...newValue.map((item) => -(-item.priceUsd))]}],
                 categories: newValue.map((item) => item.time)
@@ -104,6 +100,11 @@
               
               
             }
+          },
+          setRange(){
+            let range = this.endTime - this.startTime;
+            this.rangeOfDays = Math.round(range/(24*3600*1000))||1;
+            this.queryInterval = this.rangeOfDays>2?(this.rangeOfDays>30?'d1':'h2'):'m15';
           }
       },
 
@@ -114,9 +115,11 @@
           },200)
         },
         startTime(newValue){
+          this.setRange();
           this.startInput = new Date(newValue).toISOString().slice(0, 10);
         },
         endTime(newValue){
+          this.setRange();
           this.endInput = new Date(newValue).toISOString().slice(0, 10);
         }
   
