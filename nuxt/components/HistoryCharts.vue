@@ -6,17 +6,18 @@
         <div class="month intervalButton" :class="{current: selector.month}"  @click="setSelector('month')" >Месяц</div>
         <div class="year intervalButton" :class="{current: selector.year}"  @click="setSelector('year')" >Год</div>        
       </div>
-      <div class="bottomBar">
+      <div class="bottomBar" >
         <UILeftButton @click="moveLeft"></UILeftButton>
-        <div class="inputWrap">
+        <div class="inputWrap" :class="{wrongInput:wrongInput}">
           <input class="input" :class="{currentInput: selector.interval}" type="date" v-model="startInput" @input="updateStart" @click="setSelector('interval')">
         </div>
-        <div class="inputWrap">
+        <div class="inputWrap" :class="{wrongInput:wrongInput}">
           <input class="input" :class="{currentInput: selector.interval}" type="date" v-model="endInput" @input="updateEnd" @click="setSelector('interval')">
         </div>
         <UIRightButton @click="moveRight" ></UIRightButton>
       </div>
       <SecondChart :dataSet="dataSet"></SecondChart>
+     <MyPreloader v-if="gettingData" ></MyPreloader>
   </div>
 </template>
 
@@ -25,14 +26,16 @@
   export default {
     data(){
       return {
+        gettingData: false,
         queryResult: {},
         queryInterval:'',
+        wrongInput: false,
         selector:{
              day: true,
              week: false,
              month: false,
              year: false,
-             interval: false,
+             interval: false, 
         },
         startInput:'',
         endInput:'',
@@ -44,22 +47,27 @@
       }},
       methods:{
           updateStart(event){
+            let time = Date.parse(event.target.value)+24*3600*1000;
+            if (this.checkWrong(time,  this.endTime)) return
             this.startTime = Date.parse(event.target.value);
             this.getData();
 
           },
           updateEnd(event){
-            this.endTime = Date.parse(event.target.value)+24*3600*1000;
+            let time = Date.parse(event.target.value)+24*3600*1000;
+            if (this.checkWrong(this.startTime, time)) return
+            this.endTime = time;
             this.getData();
           },
 
 
           async getData(){
-            let data = await this.$api.get(`https://api.coincap.io/v2/assets/bitcoin/history?interval=${this.queryInterval}&start=${this.startTime}&end=${this.endTime}`,{
-
-            });
-           this.queryResult = data.data.data;
-          //  console.log(this.queryResult)
+            this.gettingData = true;
+            let data = await this.$api.get(`http://localhost:3000/api/data?interval=${this.queryInterval}&start=${this.startTime}&end=${this.endTime}`)
+             
+              console.log((this.endTime - this.startTime)/(24*3600*1000))
+           this.queryResult = data.data;
+           console.log(this.queryResult)
           },
 
 
@@ -74,10 +82,10 @@
             }
           },
           setNewDate(){
-            if (this.selector.day) {this.rangeOfDays = 1; this.queryInterval = 'm30'}
-            if (this.selector.week) {this.rangeOfDays = 7; this.queryInterval = 'h2'}
-            if (this.selector.month) {this.rangeOfDays = 31; this.queryInterval = 'h6'}
-            if (this.selector.year) {this.rangeOfDays = 366; this.queryInterval = 'd1'}
+            if (this.selector.day) {this.rangeOfDays = 1; this.queryInterval = '1'}
+            if (this.selector.week) {this.rangeOfDays = 7; this.queryInterval = '1'}
+            if (this.selector.month) {this.rangeOfDays = 31; this.queryInterval = '4'}
+            if (this.selector.year) {this.rangeOfDays = 366; this.queryInterval = '24'}
             this.startTime =  new Date().setHours(new Date().getHours()-24*this.rangeOfDays);
             this.endTime = Date.now();            
           },
@@ -92,24 +100,34 @@
             this.getData();
           },
           makeDataSet(newValue){
-            if (newValue.length>0){           
+            if (newValue.length>0)
+            {  
+              this.gettingData = false;         
               this.dataSet = {
-                series: [{name:'USD', data:[...newValue.map((item) => -(-item.priceUsd))]}],
-                categories: newValue.map((item) => item.time)
-              } 
-              
-              
+                series: [{name:'USD', data:[...newValue.map((item) => -(-item.data.priceUsd))]}],
+                categories: newValue.map((item) => item.data.time)
+              }             
             }
+          },
+          checkWrong(start, end){          
+            if (start<=end) return
+            document.getElementsByClassName('bottomBar')[0].focus();
+            this.wrongInput = true;
+              setTimeout(() => {
+                this.wrongInput = false;
+              }, 1500);
+             return true;
           },
           setRange(){
             let range = this.endTime - this.startTime;
             this.rangeOfDays = Math.round(range/(24*3600*1000))||1;
-            this.queryInterval = this.rangeOfDays>2?(this.rangeOfDays>30?'d1':'h2'):'m15';
+            this.queryInterval = this.rangeOfDays>4?(this.rangeOfDays>30?'24':'2'):'1';
           }
       },
 
       watch:{
         queryResult(newValue){
+          
           setTimeout(() => {
             this.makeDataSet(newValue)
           },200)
@@ -133,6 +151,11 @@
 </script>
 
 <style scoped>
+.wrongInput::after{
+  background: rgb(188, 78, 78);
+ border-radius: 20px;
+  z-index:1;
+}
 .topBar{
   display: flex;
   justify-content: space-between;
@@ -145,7 +168,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  /* border: #fffde0 1px solid ; */
 }
 .intervalButton{
   width: 25%;
@@ -156,7 +178,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* transition: 0.1s ease; */
   opacity: 0.4;
 }
 .intervalButton:hover{
@@ -176,8 +197,6 @@
   transform: translate(-50%, 0);
   height: 100%;
   width: 100%;
-  /* border-bottom: #fffde0 solid 2px;
-  border-right: #fffde0 solid 2px; */
   transform: skewX(-30deg);
   box-shadow: 7px 7px 5px 1px #11111186;  
 }

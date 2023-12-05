@@ -35,7 +35,7 @@ width: 70px;
 display: flex;
 justify-content: center;
 align-items: center;
-
+cursor: pointer;
 }
 .LeftBtn{
   fill: rgba(132, 129, 121, 0.321);
