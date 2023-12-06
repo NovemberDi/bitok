@@ -3,7 +3,7 @@
  <div class="page-wrap">
     <header>
       <div class="title"> BitOk </div>
-      <div class="description">просто курс биктоина</div>
+      <div class="description">просто курс биткоина</div>
     </header>
     <HistoryCharts>
     </HistoryCharts>
